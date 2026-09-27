@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Laptop Server Watchdog — Bot WA & PaaS Manager</title>
+  <meta name="description" content="Self-hosted laptop server dashboard untuk monitoring hardware dan deploy bot WhatsApp via Cloudflare Tunnel.">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body class="dark-theme">
+
+  <!-- ═══════════════════════════════════════════════
+       TOP NAV
+  ═══════════════════════════════════════════════ -->
+  <header class="top-nav">
+    <div class="header-brand">
+      <div class="server-status-glow" id="server-glow"></div>
+      <div class="brand-text">
+        <h1>Laptop Server Watchdog <span class="badge-tag">Self-Hosted PaaS</span></h1>
+        <p class="server-subtitle" id="hostname-subtitle">Node.js · Bot WA Manager · Cloudflare Tunnel</p>
+      </div>
+    </div>
+
+    <div class="header-center">
+      <div class="tunnel-domain-pill" title="Salin domain remote">
+        <i data-lucide="globe"></i>
+        <span id="remote-domain-text">https://monitoring.server-laptop.my.id</span>
+        <button class="btn-icon-mini" id="btn-copy-domain" onclick="copyDomain()"><i data-lucide="copy"></i></button>
+      </div>
+    </div>
+
+    <div class="header-actions">
+      <div class="uptime-badge">
+        <i data-lucide="clock"></i>
+        <span>Uptime: <strong id="uptime-counter">00:00:00</strong></span>
+      </div>
+      <button class="btn-theme-pulse" onclick="triggerWaAlert()">
+        <i data-lucide="send"></i> Test Alert WA
+      </button>
+    </div>
+  </header>
+
+  <!-- ═══════════════════════════════════════════════
+       METRIC CARDS (CPU, RAM, Disk, Battery)
+  ═══════════════════════════════════════════════ -->
+  <main class="dashboard-container">
+
+    <section class="metrics-grid">
+
+      <!-- CPU -->
+      <div class="metric-card glass-panel" id="card-cpu">
+        <div class="card-header">
+          <div class="card-icon cpu-icon"><i data-lucide="cpu"></i></div>
+          <div class="card-title">
+            <h3>CPU Load</h3>
+            <span class="sub-detail" id="cpu-name">Intel Core</span>
+          </div>
+          <span class="pill-badge" id="cpu-cores-badge">— Cores</span>
+        </div>
+        <div class="metric-body">
+          <div class="big-stat">
+            <span class="stat-number" id="cpu-usage-val">0</span>
+            <span class="stat-unit">%</span>
+          </div>
+          <div class="mini-progress-track"><div class="progress-bar cpu-bar" id="cpu-bar" style="width:0%"></div></div>
+        </div>
+        <div class="card-footer">
+          <span id="cpu-speed-text">Speed: 0 GHz</span>
+          <span class="status-indicator-green" id="cpu-status-indicator">Memuat...</span>
+        </div>
+      </div>
+
+      <!-- RAM -->
+      <div class="metric-card glass-panel">
+        <div class="card-header">
+          <div class="card-icon ram-icon"><i data-lucide="memory-stick"></i></div>
+          <div class="card-title">
+            <h3>Memori RAM</h3>
+            <span class="sub-detail" id="ram-breakdown">0 / 0 GB</span>
+          </div>
+          <span class="pill-badge" id="ram-free-badge">0 GB Free</span>
+        </div>
+        <div class="metric-body">
+          <div class="big-stat">
+            <span class="stat-number" id="ram-usage-val">0</span>
+            <span class="stat-unit">%</span>
+          </div>
+          <div class="mini-progress-track"><div class="progress-bar ram-bar" id="ram-bar" style="width:0%"></div></div>
+        </div>
+        <div class="card-footer">
+          <span id="ram-used-text">Used: 0 GB</span>
+          <span class="status-indicator-green" id="ram-status-indicator">Normal</span>
+        </div>
+      </div>
+
+      <!-- Disk -->
+      <div class="metric-card glass-panel">
+        <div class="card-header">
+          <div class="card-icon disk-icon"><i data-lucide="hard-drive"></i></div>
+          <div class="card-title">
+            <h3>Penyimpanan Disk</h3>
+            <span class="sub-detail" id="disk-mount-text">C:\</span>
+          </div>
+          <span class="pill-badge" id="disk-total-badge">0 GB</span>
+        </div>
+        <div class="metric-body">
+          <div class="big-stat">
+            <span class="stat-number" id="disk-usage-val">0</span>
+            <span class="stat-unit">%</span>
+          </div>
+          <div class="mini-progress-track"><div class="progress-bar disk-bar" id="disk-bar" style="width:0%"></div></div>
+        </div>
+        <div class="card-footer">
+          <span id="disk-used-text">Used: 0 GB</span>
+          <span class="status-indicator-green" id="disk-status-indicator">Aman</span>
+        </div>
+      </div>
+
+      <!-- Battery / Power -->
+      <div class="metric-card glass-panel">
+        <div class="card-header">
+          <div class="card-icon power-icon"><i data-lucide="zap"></i></div>
+          <div class="card-title">
+            <h3>Daya & Baterai</h3>
+            <span class="sub-detail" id="power-source-text">PLN 24/7</span>
+          </div>
+          <span class="pill-badge battery-plugged" id="power-plugged-badge">⚡ Plugged In</span>
+        </div>
+        <div class="metric-body">
+          <div class="big-stat">
+            <span class="stat-number" id="battery-percent-val">100</span>
+            <span class="stat-unit">%</span>
+          </div>
+          <div class="mini-progress-track"><div class="progress-bar power-bar" id="battery-bar" style="width:100%"></div></div>
+        </div>
+        <div class="card-footer">
+          <span id="battery-health-text">Server 24/7 Mode</span>
+          <span class="status-indicator-green" id="battery-status-indicator">OK</span>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- ═══════════════════════════════════════════════
+         TABS
+    ═══════════════════════════════════════════════ -->
+    <div class="tabs-nav">
+      <button class="tab-btn active" data-tab="tab-telemetry">
+        <i data-lucide="activity"></i> Performa Real-Time
+      </button>
+      <button class="tab-btn" data-tab="tab-deployer">
+        <i data-lucide="upload-cloud"></i> 🤖 Bot WA Deployer
+      </button>
+      <button class="tab-btn" data-tab="tab-processes">
+        <i data-lucide="list"></i> Process Manager
+      </button>
+      <button class="tab-btn" data-tab="tab-database">
+        <i data-lucide="database"></i> Database & Stack
+      </button>
+      <button class="tab-btn" data-tab="tab-cloudflare">
+        <i data-lucide="shield-check"></i> Cloudflare Tunnel Guide
+      </button>
+      <button class="tab-btn" data-tab="tab-settings">
+        <i data-lucide="sliders"></i> Pengaturan Alert
+      </button>
+    </div>
+
+    <div class="tab-content-wrapper">
+
+      <!-- ═══════════ TAB 1: Telemetry ═══════════ -->
+      <div class="tab-panel active" id="tab-telemetry">
+        <div class="grid-2col">
+          <div class="glass-panel chart-card">
+            <div class="panel-header">
+              <h3><i data-lucide="trending-up"></i> Grafik CPU & RAM (Real-Time)</h3>
+              <div class="live-pulse">LIVE</div>
+            </div>
+            <div class="chart-container">
+              <canvas id="realtimeChart"></canvas>
+            </div>
+          </div>
+
+          <div class="glass-panel network-card">
+            <div class="panel-header">
+              <h3><i data-lucide="wifi"></i> Jaringan & Spesifikasi</h3>
+            </div>
+
+            <div class="net-stats-row">
+              <div class="net-stat-box down">
+                <i data-lucide="arrow-down-left"></i>
+                <div class="net-val"><span id="net-down-val">0</span> <small>KB/s</small></div>
+                <span class="net-label">Download</span>
+              </div>
+              <div class="net-stat-box up">
+                <i data-lucide="arrow-up-right"></i>
+                <div class="net-val"><span id="net-up-val">0</span> <small>KB/s</small></div>
+                <span class="net-label">Upload</span>
+              </div>
+            </div>
+
+            <div class="info-list">
+              <div class="info-item">
+                <span class="info-key"><i data-lucide="monitor"></i> OS:</span>
+                <span class="info-val" id="info-os">—</span>
+              </div>
+              <div class="info-item">
+                <span class="info-key"><i data-lucide="wifi"></i> Interface:</span>
+                <span class="info-val" id="info-net-iface">—</span>
+              </div>
+              <div class="info-item">
+                <span class="info-key"><i data-lucide="link"></i> IP Lokal:</span>
+                <span class="info-val highlight-ip" id="info-local-ip">—</span>
+              </div>
+              <div class="info-item">
+                <span class="info-key"><i data-lucide="fingerprint"></i> MAC:</span>
+                <span class="info-val" id="info-mac">—</span>
+              </div>
+              <div class="info-item">
+                <span class="info-key"><i data-lucide="cpu"></i> Arch:</span>
+                <span class="info-val" id="info-arch">—</span>
+              </div>
+              <div class="info-item">
+                <span class="info-key"><i data-lucide="cloud"></i> Tunnel:</span>
+                <span class="info-val" id="info-tunnel-status" style="color: var(--status-green)">ONLINE</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══════════ TAB 2: Bot Deployer (PaaS) ═══════════ -->
+      <div class="tab-panel" id="tab-deployer">
+        <div class="grid-2col">
+
+          <!-- Upload Form -->
+          <div class="glass-panel deploy-form-card">
+            <div class="panel-header">
+              <h3><i data-lucide="folder-plus"></i> Upload & Deploy Bot WA</h3>
+              <span class="badge-live-stream">PaaS Engine</span>
+            </div>
+
+            <div class="deploy-info-banner">
+              <i data-lucide="info" style="color: var(--primary-cyan); flex-shrink:0;"></i>
+              <div>
+                <strong>Cara Pakai:</strong> Upload file <code>.js</code> tunggal atau <code>.zip</code> folder project bot WA Anda. Sistem akan otomatis assign port, jalankan <code>npm install</code>, lalu <code>npm start</code> dan buat link Cloudflare Tunnel.
+              </div>
+            </div>
+
+            <form id="deployBotForm" onsubmit="handleBotDeploy(event)" class="deploy-form">
+              <div class="form-group">
+                <label for="deploy-name">Nama Bot / Project:</label>
+                <input type="text" id="deploy-name" placeholder="Contoh: Bot Toko Batik WA" required>
+              </div>
+
+              <div class="form-group">
+                <label for="deploy-entry">File Entry Point (main script):</label>
+                <input type="text" id="deploy-entry" value="index.js" placeholder="index.js atau main.js">
+                <small class="hint-text">Script utama yang dijalankan dengan <code>node index.js</code></small>
+              </div>
+
+              <div class="form-group">
+                <label for="deploy-subdomain">Subdomain Cloudflare Tunnel:</label>
+                <input type="text" id="deploy-subdomain" placeholder="botku.domainanda.com">
+                <small class="hint-text">Kosongkan = auto-generate dari port</small>
+              </div>
+
+              <div class="form-group">
+                <label for="deploy-file">Upload Script (.js tunggal atau .zip folder project):</label>
+                <div class="file-upload-area" id="file-upload-area" onclick="document.getElementById('deploy-file').click()">
+                  <i data-lucide="upload-cloud" class="upload-icon"></i>
+                  <p>Klik atau drag & drop file di sini</p>
+                  <small>Mendukung: .zip, .js (maks 50MB)</small>
+                  <input type="file" id="deploy-file" accept=".zip,.js,.json" style="display:none"
+                    onchange="updateFileLabel(this)">
+                </div>
+                <p id="file-label" class="file-label-text" style="display:none;"></p>
+              </div>
+
+              <button type="submit" class="btn-primary" id="btn-deploy" style="width:100%; justify-content:center;">
+                <i data-lucide="rocket"></i> Deploy Bot & Generate Tunnel Link
+              </button>
+            </form>
+          </div>
+
+          <!-- Bot Instances Panel -->
+          <div class="glass-panel">
+            <div class="panel-header">
+              <h3><i data-lucide="server"></i> Bot Instances Running</h3>
+              <button class="btn-sm" onclick="fetchBotInstances()"><i data-lucide="refresh-cw"></i> Refresh</button>
+            </div>
+            <div id="bot-instances-list" class="bot-instances-list">
+              <div class="empty-state">
+                <i data-lucide="package-open"></i>
+                <p>Belum ada bot terdaftar.<br>Upload script bot WA Anda di form kiri!</p>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- ═══════════ TAB 3: Process Manager ═══════════ -->
+      <div class="tab-panel" id="tab-processes">
+        <div class="glass-panel">
+          <div class="panel-header">
+            <h3><i data-lucide="cpu"></i> Process Manager — Top 20 by CPU Usage</h3>
+            <button class="btn-sm" onclick="fetchProcesses()"><i data-lucide="refresh-cw"></i> Refresh</button>
+          </div>
+          <div class="table-responsive">
+            <table class="process-table">
+              <thead>
+                <tr>
+                  <th>PID</th>
+                  <th>Nama Process</th>
+                  <th>CPU %</th>
+                  <th>RAM %</th>
+                  <th>User</th>
+                </tr>
+              </thead>
+              <tbody id="process-table-body">
+                <tr><td colspan="5" class="text-center muted">Memuat...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══════════ TAB 4: Database & Stack ═══════════ -->
+      <div class="tab-panel" id="tab-database">
+        <div class="glass-panel" style="padding: 1.5rem;">
+          <div class="panel-header" style="padding:0 0 1rem 0; margin-bottom: 1.5rem;">
+            <h3><i data-lucide="layers"></i> PostgreSQL — Pilih Backend Stack Profesional</h3>
+            <span class="badge-live-stream" style="background: rgba(246,130,31,0.2); color: #f6821f; border-color: rgba(246,130,31,0.4);">PostgreSQL Guide</span>
+          </div>
+
+          <div id="db-stack-cards" class="db-stack-grid">
+            <!-- Rendered by JS from /api/db/stack -->
+          </div>
+
+          <div class="glass-panel" style="margin-top: 1.5rem; padding: 1.25rem; background: rgba(0,0,0,0.3);">
+            <h4 style="margin-bottom: 0.75rem; display:flex; align-items:center; gap:0.5rem;">
+              <i data-lucide="terminal"></i> Install PostgreSQL di Laptop Server
+            </h4>
+            <div id="pg-install-cmds" class="db-install-tabs">
+              <!-- rendered by JS -->
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══════════ TAB 5: Cloudflare Guide ═══════════ -->
+      <div class="tab-panel" id="tab-cloudflare">
+        <div class="glass-panel guide-container">
+          <div class="panel-header">
+            <h3><i data-lucide="sparkles"></i> Panduan Setup Cloudflare Tunnel — Akses Laptop dari Mana Saja</h3>
+          </div>
+
+          <div class="guide-banner">
+            <i data-lucide="shield-check" class="guide-banner-icon"></i>
+            <div>
+              <h4>Kenapa Cloudflare Tunnel?</h4>
+              <p>Laptop di rumah (IP dinamis) bisa dapat domain publik tanpa Port Forwarding, tanpa IP Statis. Bot WA Anda di laptop bisa diakses dari HP atau luar kota 24/7!</p>
+            </div>
+          </div>
+
+          <div class="steps-grid">
+            <div class="step-card">
+              <div class="step-num">1</div>
+              <h4>Daftarkan Domain ke Cloudflare</h4>
+              <p>Arahkan Nameserver domain ke Cloudflare (gratis). Masuk ke <strong>Cloudflare Dashboard → Zero Trust → Networks → Tunnels</strong>.</p>
+            </div>
+            <div class="step-card">
+              <div class="step-num">2</div>
+              <h4>Install cloudflared di Laptop</h4>
+              <div class="code-box"><code># Windows (Powershell):<br>winget install Cloudflare.cloudflared<br><br># Ubuntu Server:<br>sudo apt install cloudflared</code></div>
+            </div>
+            <div class="step-card">
+              <div class="step-num">3</div>
+              <h4>Login & Buat Tunnel</h4>
+              <div class="code-box"><code>cloudflared tunnel login<br>cloudflared tunnel create laptop-server<br>cloudflared tunnel run laptop-server</code></div>
+            </div>
+            <div class="step-card">
+              <div class="step-num">4</div>
+              <h4>Arahkan Domain → Port Dashboard</h4>
+              <p>Di Cloudflare Tunnel, tambahkan Public Hostname:</p>
+              <ul style="padding-left:1rem; font-size:0.85rem; color: var(--text-muted);">
+                <li><strong>Subdomain:</strong> <code>monitoring</code></li>
+                <li><strong>Domain:</strong> <code>domainanda.com</code></li>
+                <li><strong>Type:</strong> <code>HTTP</code> | <strong>URL:</strong> <code>localhost:4000</code></li>
+              </ul>
+              <p style="margin-top:0.5rem; color: var(--status-green);">✅ Selesai! Dashboard Anda live di internet.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══════════ TAB 6: Settings ═══════════ -->
+      <div class="tab-panel" id="tab-settings">
+        <div class="glass-panel settings-form">
+          <div class="panel-header">
+            <h3><i data-lucide="sliders"></i> Pengaturan Alert & Notifikasi WhatsApp</h3>
+          </div>
+          <form id="settingsForm" onsubmit="saveSettings(event)">
+            <div class="form-grid">
+              <div class="form-group">
+                <label for="input-cpu-limit">Batas Warning CPU (%):</label>
+                <input type="number" id="input-cpu-limit" min="10" max="100" value="85">
+                <small class="hint-text">Alert jika CPU melebihi angka ini.</small>
+              </div>
+              <div class="form-group">
+                <label for="input-ram-limit">Batas Warning RAM (%):</label>
+                <input type="number" id="input-ram-limit" min="10" max="100" value="90">
+                <small class="hint-text">Alert jika RAM hampir penuh.</small>
+              </div>
+              <div class="form-group">
+                <label for="input-battery-limit">Batas Warning Baterai (%):</label>
+                <input type="number" id="input-battery-limit" min="5" max="50" value="20">
+                <small class="hint-text">Alert jika charger dicabut & baterai rendah.</small>
+              </div>
+              <div class="form-group">
+                <label for="input-phone">Nomor WA Penerima Alert (+62...):</label>
+                <input type="text" id="input-phone" value="+62 812-9988-7766">
+                <small class="hint-text">Nomor WA untuk peringatan otomatis.</small>
+              </div>
+            </div>
+            <div class="form-actions">
+              <button type="submit" class="btn-primary"><i data-lucide="save"></i> Simpan Pengaturan</button>
+            </div>
+          </form>
+        </div>
+      </div>
+
+    </div><!-- /.tab-content-wrapper -->
+
+    <!-- Live Terminal -->
+    <section class="glass-panel logs-panel">
+      <div class="panel-header">
+        <div class="logs-header-title">
+          <i data-lucide="terminal" class="terminal-icon"></i>
+          <h3>Live Terminal — System Event Stream</h3>
+        </div>
+        <div class="logs-actions">
+          <span class="badge-live-stream">WS LIVE</span>
+          <button class="btn-sm-outline" onclick="clearLogs()"><i data-lucide="trash-2"></i> Clear</button>
+        </div>
+      </div>
+      <div class="console-box" id="console-stream"></div>
+    </section>
+
+  </main>
+
+  <script src="js/app.js"></script>
+  <script>lucide.createIcons();</script>
+</body>
+</html>
